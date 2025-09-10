@@ -18,6 +18,8 @@ from ..models.analysis import PitcherAnalysis, FantasyWeek
 from ..models.team import FantasyTeam, MLBTeam
 from ..api.yahoo_client import YahooFantasyClient
 from ..api.mlb_client import MLBStatsClient
+from ..api.mlb_player_lookup import search_mlb_player
+from ..data.mlb_player_cache import get_player_id_with_fallback, update_player_cache
 from ..core.exceptions import AnalysisError, APIError
 from ..utils.text_utils import slugify
 from ..utils.url_utils import create_baseball_savant_url
@@ -111,11 +113,18 @@ class AnalysisService:
                     source="My Team"
                 )
                 
-                # Add Baseball Savant URL if we have MLB player ID
-                if player_data.get('mlb_player_id'):
-                    player.mlb_player_id = player_data['mlb_player_id']
+                # Try to find MLB player ID - first from cache, then API
+                mlb_id = get_player_id_with_fallback(player.name)
+                if not mlb_id:
+                    mlb_id = search_mlb_player(player.name)
+                    if mlb_id:
+                        # Cache it for next time
+                        update_player_cache(player.name, mlb_id)
+                
+                if mlb_id:
+                    player.mlb_player_id = mlb_id
                     player.baseball_savant_url = create_baseball_savant_url(
-                        player.name, player.mlb_player_id
+                        player.name, mlb_id
                     )
                 
                 players.append(player)

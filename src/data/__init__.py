@@ -1,0 +1,1 @@
+"""Data module for Yahoo Fantasy Baseball Analyzer."""

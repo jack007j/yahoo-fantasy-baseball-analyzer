@@ -6,10 +6,11 @@ This file must be at the root level for Streamlit Cloud to recognize it.
 """
 
 import streamlit as st
-from src.ui.pages.analysis_tab import render_analysis_tab
-from src.ui.pages.roster_tab import render_roster_tab
-from src.ui.components.sidebar import render_sidebar
-from src.ui.components.styling import apply_custom_css, create_section_header
+from src.ui.pages.analysis_tab_enhanced import render_enhanced_analysis_tab
+from src.ui.pages.roster_tab_enhanced import render_enhanced_roster_tab
+from src.ui.components.sidebar_enhanced import render_enhanced_sidebar
+from src.ui.components.styling_enhanced import apply_enhanced_css
+from src.ui.components.styling import create_section_header
 from src.ui.components.loading import inject_loading_css
 from src.core.config import get_config
 
@@ -41,17 +42,15 @@ def main() -> None:
         }
     )
     
-    # Apply custom styling
-    apply_custom_css()
+    # Apply enhanced styling with dark mode and mobile support
+    apply_enhanced_css()
     inject_loading_css()
     
-    # Application header with enhanced styling
+    # Compact application header
     st.markdown("""
-    <div class="main-header fade-in">
-        <h1 style="margin: 0; font-size: 2.5rem;">⚾ Yahoo Fantasy Baseball Analyzer</h1>
-        <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9;">
-            Find the best Monday/Tuesday starting pitchers for your fantasy team
-        </p>
+    <div class="main-header fade-in" style="padding: 0.5rem 0;">
+        <h2>Yahoo Fantasy Baseball Analyzer</h2>
+        <p style="font-size: 0.9rem;">Find two-start starting pitchers on your waiver wire</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -68,72 +67,54 @@ def main() -> None:
         """)
         st.stop()
     
-    # Sidebar configuration
+    # Enhanced sidebar with mobile-friendly team ID discovery
     with st.sidebar:
-        sidebar_config = render_sidebar()
+        sidebar_config = render_enhanced_sidebar()
     
     # Show configuration status
     if not sidebar_config.get('is_configured', False):
-        st.markdown(create_section_header(
-            "🚀 Welcome to Yahoo Fantasy Baseball Analyzer",
-            "Configure your team settings in the sidebar to get started"
-        ), unsafe_allow_html=True)
+        st.info("🔧 Configure your team key in the sidebar to get started")
         
-        # Feature showcase
+        # Compact feature showcase
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.markdown("""
-            <div class="content-section fade-in">
-                <h4>📊 Smart Analysis</h4>
-                <p>Get confirmed Monday/Tuesday starters with potential second start identification.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.caption("📊 **Analysis**: Mon/Tue starters")
         
         with col2:
-            st.markdown("""
-            <div class="content-section fade-in">
-                <h4>🔄 Waiver Wire Intel</h4>
-                <p>Compare your roster against available waiver wire options with ownership data.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.caption("🔄 **Waiver**: Available pitchers")
         
         with col3:
-            st.markdown("""
-            <div class="content-section fade-in">
-                <h4>📈 Advanced Stats</h4>
-                <p>Direct links to Baseball Savant for detailed player performance metrics.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.caption("📈 **Stats**: Savant links")
     
     # Main application tabs with enhanced styling
-    tab1, tab2 = st.tabs(["📊 Analysis", "👥 Roster"])
+    tab1, tab2 = st.tabs(["Analysis", "Roster"])
     
     with tab1:
-        render_analysis_tab()
+        render_enhanced_analysis_tab()
     
     with tab2:
-        render_roster_tab()
+        render_enhanced_roster_tab()
     
-    # Enhanced footer
+    # Enhanced footer with dark mode support
     st.markdown("---")
     st.markdown("""
     <div class="content-section" style="text-align: center; margin-top: 2rem;">
         <h4>Yahoo Fantasy Baseball Analyzer</h4>
         <p style="margin: 0.5rem 0;">
-            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit' target='_blank' style="text-decoration: none;">
+            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit' target='_blank'>
                 📚 Documentation
             </a> |
-            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit/issues' target='_blank' style="text-decoration: none;">
+            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit/issues' target='_blank'>
                 🐛 Report Issues
             </a> |
-            <a href='https://fantasy.yahoo.com' target='_blank' style="text-decoration: none;">
+            <a href='https://fantasy.yahoo.com' target='_blank'>
                 🏟️ Yahoo Fantasy
             </a>
         </p>
-        <p style="font-size: 0.85rem; color: #666; margin: 1rem 0 0 0;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 1rem 0 0 0;">
             Data powered by Yahoo Fantasy API & MLB Stats API |
-            Built with ❤️ using Streamlit
+            Built with Streamlit | Dark mode & mobile optimized
         </p>
     </div>
     """, unsafe_allow_html=True)

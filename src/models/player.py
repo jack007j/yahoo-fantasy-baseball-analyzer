@@ -39,6 +39,10 @@ class Player(BaseModel):
     baseball_savant_url: Optional[str] = Field(None, description="Baseball Savant player page URL")
     last_updated: Optional[date] = Field(None, description="When player data was last updated")
     
+    # Enhanced display fields (computed at runtime, not stored)
+    profile_image_url: Optional[str] = Field(None, description="Player profile image URL")
+    baseball_savant_id: Optional[str] = Field(None, description="Baseball Savant player ID")
+    
     @validator('yahoo_player_id', pre=True)
     def validate_yahoo_player_id(cls, v) -> Optional[str]:
         """Convert yahoo_player_id to string if it's an integer."""
@@ -76,13 +80,48 @@ class Player(BaseModel):
         """Return formatted ownership percentage."""
         return f"{self.percent_owned:.1f}%"
     
+    @property
+    def get_profile_image_url(self) -> str:
+        """Generate player profile image URL from Baseball Savant URL or MLB ID."""
+        if self.profile_image_url:
+            return self.profile_image_url
+        
+        # Try to extract MLB ID from Baseball Savant URL first
+        mlb_id = self.extract_mlb_id_from_savant_url()
+        if mlb_id:
+            # Use the MLB headshot URL format that works
+            return f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{mlb_id}/headshot/67/current"
+        
+        # Fallback to mlb_player_id if available
+        if self.mlb_player_id:
+            return f"https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{self.mlb_player_id}/headshot/67/current"
+        
+        # Generic silhouette placeholder  
+        return "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/generic/headshot/67/current"
+    
+    @property  
+    def get_baseball_savant_id(self) -> Optional[str]:
+        """Extract Baseball Savant ID from URL if available."""
+        if self.baseball_savant_id:
+            return self.baseball_savant_id
+        return self.extract_mlb_id_from_savant_url()
+    
+    def extract_mlb_id_from_savant_url(self) -> Optional[str]:
+        """Extract MLB player ID from Baseball Savant URL."""
+        if self.baseball_savant_url:
+            # URL format: https://baseballsavant.mlb.com/savant-player/firstname-lastname-123456
+            # We want to extract the ID (123456)
+            import re
+            match = re.search(r'-(\d+)(?:\?|$)', self.baseball_savant_url)
+            if match:
+                return match.group(1)
+        return None
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert player to dictionary for display purposes."""
         return {
             'name': self.name,
             'positions': self.display_positions,
-            'ownership': self.ownership_display,
-            'team': self.mlb_team_name or 'Unknown',
             'source': self.source,
             'start_date': self.confirmed_start_date.isoformat() if self.confirmed_start_date else None,
             'potential_2nd_start': self.potential_second_start,
