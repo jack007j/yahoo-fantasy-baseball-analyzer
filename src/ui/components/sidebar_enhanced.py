@@ -110,7 +110,7 @@ def _render_enhanced_team_id_section() -> Optional[str]:
 
         except Exception as e:
             # Fallback to manual entry if API fails
-            st.sidebar.warning(f"Could not load teams automatically")
+            st.sidebar.warning(f"Could not load teams automatically: {str(e)}")
             st.sidebar.markdown("**Manual Team Entry:**")
 
             team_number = st.sidebar.text_input(
