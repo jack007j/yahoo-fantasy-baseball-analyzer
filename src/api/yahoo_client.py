@@ -55,16 +55,17 @@ class YahooFantasyClient:
                     import os
 
                     import time
+
+                    # Don't force token expiry - let the OAuth library handle it naturally
                     oauth_data = {
                         'consumer_key': st.secrets['yahoo_oauth']['client_id'],
                         'consumer_secret': st.secrets['yahoo_oauth']['client_secret'],
                         'access_token': st.secrets['yahoo_oauth']['access_token'],
                         'refresh_token': st.secrets['yahoo_oauth']['refresh_token'],
-                        'token_time': time.time() - 1800,  # Token obtained 30 minutes ago
+                        'token_time': time.time(),  # Current time - token is fresh
                         'token_type': 'bearer',
                         'expires_in': 3600,  # Valid for 1 hour
-                        'guid': None,
-                        'access_token_secret': st.secrets['yahoo_oauth']['refresh_token']  # yahoo_oauth expects this
+                        'guid': None
                     }
 
                     # Write to temp file
@@ -82,15 +83,23 @@ class YahooFantasyClient:
                 else:
                     raise Exception("No OAuth configuration found (neither file nor secrets)")
 
-            # Always try to refresh token for Streamlit Cloud deployment
-            # The tokens from secrets might be expired
+            # Only refresh if token is actually expired
             try:
-                self.logger.info("Attempting to refresh OAuth token...")
-                self._oauth_client.refresh_access_token()
-                self.logger.info("Token refreshed successfully")
+                if not self._oauth_client.token_is_valid():
+                    self.logger.info("Token expired, attempting to refresh...")
+                    self._oauth_client.refresh_access_token()
+                    self.logger.info("Token refreshed successfully")
+                else:
+                    self.logger.info("Token is still valid, no refresh needed")
             except Exception as refresh_error:
-                self.logger.warning(f"Token refresh failed: {refresh_error}")
-                # Continue anyway - might still work
+                self.logger.warning(f"Token validation/refresh failed: {refresh_error}")
+                # Try to refresh anyway as a fallback
+                try:
+                    self._oauth_client.refresh_access_token()
+                    self.logger.info("Forced token refresh succeeded")
+                except:
+                    self.logger.error("Could not refresh token")
+                    # Continue anyway - might still work
 
             # Initialize game object with the OAuth client
             self._game = yfa.Game(self._oauth_client, YAHOO_GAME_CODE)
