@@ -42,6 +42,7 @@ class AnalysisService:
         self.yahoo_client = yahoo_client
         self.mlb_client = mlb_client
         self.cache_service = cache_service
+        self.logger = st.logger if hasattr(st, 'logger') else None
         
     def analyze_next_fantasy_week(self, team_key: str) -> Tuple[FantasyWeek, List[PitcherAnalysis]]:
         """
@@ -316,24 +317,34 @@ class AnalysisService:
         return None
     
     def _check_potential_second_start(self, team_id: int, first_start_date: date, fantasy_week_end: date) -> bool:
-        """Check if pitcher has potential for second start based on team schedule."""
+        """Check if pitcher has potential for second start based on team schedule.
+
+        This matches the logic from assistantbeta.ipynb:
+        - Look at games starting day after first start
+        - Check 5 days beyond fantasy week end to catch team's 5th game
+        - If team has 5+ games and the 5th game is within fantasy week, likely second start
+        """
         try:
-            schedule_start = first_start_date + timedelta(days=1)
-            schedule_end = fantasy_week_end + timedelta(days=5)
-            
+            # Match the working script's logic exactly
+            schedule_start = first_start_date + timedelta(days=1)  # Day after first start
+            schedule_end = fantasy_week_end + timedelta(days=5)  # Look 5 days beyond week end
+
             game_dates = self.mlb_client.get_team_schedule(
-                team_id, 
-                schedule_start.isoformat(), 
-                schedule_end.isoformat()
+                team_id,
+                schedule_start,
+                schedule_end
             )
-            
+
+            # If team has 5+ games after the first start, check if 5th game is within fantasy week
             if len(game_dates) >= 5:
-                potential_second_start_date = game_dates[4]
+                potential_second_start_date = game_dates[4]  # 5th game (0-indexed)
                 return potential_second_start_date <= fantasy_week_end
-            
+
             return False
-            
-        except Exception:
+
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"Error checking second start potential: {e}")
             return False
     
     def _calculate_recommendation_score(self, player: Player, potential_second: bool) -> float:

@@ -88,42 +88,79 @@ class YahooFantasyClient:
     def get_league(self, league_id: str) -> Optional[yfa.League]:
         """
         Get Yahoo Fantasy league object.
-        
+
         Args:
             league_id: Yahoo Fantasy league ID (e.g., "458.l.135626")
-            
+
         Returns:
             Yahoo Fantasy League object or None if not found
-            
+
         Raises:
             YahooAPIError: If league retrieval fails
         """
         try:
             self._ensure_authenticated()
-            
+
             if not self._game:
                 raise YahooAPIError("Game object not initialized")
-            
+
             # Get available league IDs for current year
             from datetime import date
             current_year = date.today().year
             league_ids = self._game.league_ids(year=current_year)
-            
+
             if league_id not in league_ids:
                 available_leagues = ", ".join(league_ids) if league_ids else "None"
                 raise YahooAPIError(
                     f"League ID {league_id} not found for {current_year}. "
                     f"Available leagues: {available_leagues}"
                 )
-            
+
             league = self._game.to_league(league_id)
             self.logger.info(f"Successfully retrieved league {league_id}")
             return league
-            
+
         except Exception as e:
             if isinstance(e, (YahooAPIError, AuthenticationError)):
                 raise
             raise YahooAPIError(f"Failed to get league {league_id}: {str(e)}")
+
+    def get_league_teams(self, league_id: str) -> Dict[str, str]:
+        """
+        Get all teams in a league with their names and team keys.
+
+        Args:
+            league_id: Yahoo Fantasy league ID (e.g., "458.l.135626")
+
+        Returns:
+            Dictionary mapping team keys to team names
+
+        Raises:
+            YahooAPIError: If teams retrieval fails
+        """
+        try:
+            self._ensure_authenticated()
+
+            league = self.get_league(league_id)
+            if not league:
+                raise YahooAPIError(f"Could not retrieve league {league_id}")
+
+            teams_data = league.teams()
+            teams_dict = {}
+
+            for team_key, team_info in teams_data.items():
+                # Extract team name
+                team_name = team_info.get('name', f"Team {team_key}")
+                teams_dict[team_key] = team_name
+                self.logger.debug(f"Found team: {team_name} ({team_key})")
+
+            self.logger.info(f"Retrieved {len(teams_dict)} teams from league {league_id}")
+            return teams_dict
+
+        except Exception as e:
+            if isinstance(e, (YahooAPIError, AuthenticationError)):
+                raise
+            raise YahooAPIError(f"Failed to get teams for league {league_id}: {str(e)}")
     
     def get_waiver_pitchers(self, league: yfa.League) -> List[Player]:
         """

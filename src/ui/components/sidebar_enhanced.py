@@ -39,139 +39,131 @@ def render_enhanced_sidebar() -> Dict[str, Any]:
 
 
 def _render_enhanced_team_id_section() -> Optional[str]:
-    """Enhanced team ID input with multiple discovery methods."""
+    """Enhanced team ID input with league ID and team selection."""
     st.sidebar.subheader("⚾ Team Configuration")
-    
-    # Tab selection for different input methods
-    input_method = st.sidebar.radio(
-        "Choose input method:",
-        ["Direct Entry", "Paste URL", "Mobile Guide"],
-        help="Select how you'd like to enter your team information"
+
+    # Step 1: League ID input
+    st.sidebar.markdown("**Step 1: Enter Your League ID**")
+    league_id_input = st.sidebar.text_input(
+        "League ID",
+        value=st.session_state.get('league_id', ''),
+        placeholder="e.g., 135626",
+        help="Just the number from your league URL or settings"
     )
-    
+
+    # Build the full league key with game code
     team_key = None
-    
-    if input_method == "Direct Entry":
-        # Traditional team key input
-        team_key = st.sidebar.text_input(
-            "Yahoo Fantasy Team Key",
-            value=st.session_state.get('team_key', ''),
-            placeholder="e.g., 458.l.135626.t.6",
-            help="Enter your team key directly if you know it"
-        )
-        
-        if team_key:
-            if _validate_team_key_format(team_key):
-                st.sidebar.success("✅ Valid team key format")
-                st.session_state['team_key'] = team_key
+
+    if league_id_input:
+        # Store the league ID
+        st.session_state['league_id'] = league_id_input
+
+        # Build the full league key (458 is the 2025 MLB game code)
+        from datetime import date
+        current_year = date.today().year
+        game_code = "458" if current_year == 2025 else "433"  # 433 was 2024
+        full_league_key = f"{game_code}.l.{league_id_input}"
+
+        # Step 2: Team selection
+        st.sidebar.markdown("**Step 2: Select Your Team**")
+
+        # Try to fetch teams from the league
+        try:
+            from ...api.yahoo_client import YahooFantasyClient
+            client = YahooFantasyClient()
+
+            if client.is_configured():
+                # Get teams from the league
+                teams_dict = client.get_league_teams(full_league_key)
+
+                if teams_dict:
+                    # Create dropdown with team names
+                    team_options = ["Select your team..."] + [f"{name}" for name in teams_dict.values()]
+                    team_keys_list = [""] + list(teams_dict.keys())
+
+                    # Get the index of the currently selected team if any
+                    selected_index = 0
+                    if 'selected_team_key' in st.session_state:
+                        try:
+                            selected_index = team_keys_list.index(st.session_state['selected_team_key'])
+                        except ValueError:
+                            pass
+
+                    selected_team = st.sidebar.selectbox(
+                        "Your Team",
+                        options=team_options,
+                        index=selected_index,
+                        help="Choose your team from the dropdown"
+                    )
+
+                    if selected_team != "Select your team...":
+                        # Find the team key for the selected team name
+                        selected_idx = team_options.index(selected_team)
+                        team_key = team_keys_list[selected_idx]
+                        st.session_state['team_key'] = team_key
+                        st.session_state['selected_team_key'] = team_key
+                        st.sidebar.success(f"✅ Team selected: **{selected_team}**")
+                else:
+                    st.sidebar.warning("No teams found in this league")
             else:
-                st.sidebar.error("❌ Invalid format")
-                st.sidebar.info("Expected: XXX.l.XXXXXX.t.X")
-                team_key = None
-                
-    elif input_method == "Paste URL":
-        # URL extraction method - mobile friendly
-        st.sidebar.markdown("**📱 Mobile-Friendly Method**")
-        st.sidebar.info("Copy any Yahoo Fantasy URL containing your team")
-        
-        pasted_url = st.sidebar.text_area(
+                st.sidebar.error("Yahoo API not configured. Check your OAuth settings.")
+
+        except Exception as e:
+            # Fallback to manual entry if API fails
+            st.sidebar.warning(f"Could not load teams automatically")
+            st.sidebar.markdown("**Manual Team Entry:**")
+
+            team_number = st.sidebar.text_input(
+                "Team Number",
+                value=st.session_state.get('team_number', ''),
+                placeholder="e.g., 6",
+                help="Your team number in the league (usually 1-12)"
+            )
+
+            if team_number:
+                # Build the full team key
+                team_key = f"{full_league_key}.t.{team_number}"
+                st.session_state['team_key'] = team_key
+                st.session_state['team_number'] = team_number
+                st.sidebar.success(f"✅ Team key: **{team_key}**")
+
+    # Alternative: Quick paste method
+    with st.sidebar.expander("Alternative: Paste URL"):
+        st.markdown("**📱 Quick Method**")
+        pasted_url = st.text_area(
             "Paste Yahoo Fantasy URL:",
             value=st.session_state.get('pasted_url', ''),
-            placeholder="https://baseball.fantasysports.yahoo.com/b1/458.l.135626.t.6",
-            height=80,
-            help="Paste the URL from your browser or mobile app share"
+            placeholder="https://baseball.fantasysports.yahoo.com/...",
+            height=60,
+            help="Paste any URL from your team page"
         )
-        
+
         if pasted_url:
             extracted_key = _extract_team_key_from_url(pasted_url)
             if extracted_key:
-                st.sidebar.success(f"✅ Found team key: **{extracted_key}**")
+                st.success(f"✅ Found: **{extracted_key}**")
                 st.session_state['team_key'] = extracted_key
                 st.session_state['pasted_url'] = pasted_url
                 team_key = extracted_key
-                
-                # Offer to save for direct entry
-                if st.sidebar.button("Use this team key", type="primary"):
-                    st.session_state['saved_team_key'] = extracted_key
-                    st.sidebar.success("Team key saved!")
-            else:
-                st.sidebar.error("❌ No valid team key found in URL")
-                st.sidebar.caption("Make sure the URL is from your team page")
-                
-    else:  # Mobile Guide
-        _render_mobile_guide()
-        
-        # Still allow input after reading guide
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("**After finding your team info:**")
-        guide_input = st.sidebar.text_input(
-            "Enter Team Key:",
-            value=st.session_state.get('team_key', ''),
-            placeholder="458.l.135626.t.6"
-        )
-        
-        if guide_input:
-            if _validate_team_key_format(guide_input):
-                st.sidebar.success("✅ Valid team key")
-                st.session_state['team_key'] = guide_input
-                team_key = guide_input
-            else:
-                st.sidebar.error("❌ Invalid format")
-    
-    # Show current team key if set
+
+                # Extract league ID from team key
+                import re
+                match = re.search(r'\.l\.(\d+)\.', extracted_key)
+                if match:
+                    st.session_state['league_id'] = match.group(1)
+
+    # Show current configuration
     if st.session_state.get('team_key'):
         st.sidebar.markdown("---")
-        st.sidebar.info(f"**Current Team:** {st.session_state.get('team_key')}")
-        if st.sidebar.button("Clear Team Key"):
-            st.session_state.pop('team_key', None)
-            st.session_state.pop('pasted_url', None)
+        st.sidebar.info(f"**Active Team:** {st.session_state.get('team_key')}")
+        if st.sidebar.button("Clear Configuration"):
+            for key in ['team_key', 'league_id', 'selected_team_key', 'team_number', 'pasted_url']:
+                st.session_state.pop(key, None)
             st.rerun()
-    
+
     return team_key
 
 
-def _render_mobile_guide() -> None:
-    """Render mobile-specific guidance for finding team ID."""
-    st.sidebar.markdown("""
-    ### 📱 Mobile App Instructions
-    
-    **Yahoo Fantasy Sports App:**
-    
-    1. **Open the App**
-       - Launch Yahoo Fantasy Sports
-       - Sign in if needed
-    
-    2. **Find Your League**
-       - Tap the baseball icon
-       - Select your league from the list
-    
-    3. **Get Team Info** (Choose one):
-       
-       **Option A: Share Method**
-       - Tap the share icon (square with arrow)
-       - Select "Copy Link"
-       - Return here and use "Paste URL" method
-       
-       **Option B: League Settings**
-       - Tap "League" tab
-       - Go to "Settings"
-       - Find "League ID" (the numbers after 'l.')
-       - Note your team number (1-12 typically)
-       - Format: `458.l.[league_id].t.[team_number]`
-       
-       **Option C: Mobile Browser**
-       - Open browser on your phone
-       - Go to fantasy.yahoo.com
-       - Request "Desktop Site" in browser menu
-       - Sign in and go to your team
-       - Copy URL from address bar
-    
-    ### 🎯 Quick Tips:
-    - Team key format: `XXX.l.XXXXXX.t.X`
-    - First number (XXX) = Game code (458 for 2025 MLB)
-    - Middle number = Your league ID
-    - Last number = Your team number in league
-    """)
 
 
 def _extract_team_key_from_url(url: str) -> Optional[str]:
@@ -241,10 +233,10 @@ def _validate_team_key_format(team_key: str) -> bool:
 def _render_analysis_settings() -> Dict[str, Any]:
     """Render analysis configuration settings."""
     st.sidebar.subheader("📊 Analysis Settings")
-    
+
     # Mobile-friendly controls
     col1, col2 = st.sidebar.columns(2)
-    
+
     with col1:
         # Target days with better mobile layout
         target_days = st.sidebar.multiselect(
@@ -253,42 +245,34 @@ def _render_analysis_settings() -> Dict[str, Any]:
             default=["Mon", "Tue"],
             help="Days to analyze"
         )
-        
+
         # Map short names back to full names
         day_map = {
             "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday",
             "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"
         }
         target_days = [day_map.get(d, d) for d in target_days]
-    
-    # Ownership threshold with better mobile UX
-    ownership_threshold = st.sidebar.select_slider(
-        "Min Ownership %",
-        options=[0, 10, 25, 50, 75, 90],
-        value=0,
-        help="Filter by ownership"
-    )
-    
+
     # Simplified checkboxes
     col1, col2 = st.sidebar.columns(2)
-    
+
     with col1:
         include_second_starts = st.sidebar.checkbox(
             "2nd Starts",
             value=True,
             help="Check for second starts"
         )
-    
+
     with col2:
         show_waiver_players = st.sidebar.checkbox(
             "Waiver Wire",
             value=True,
             help="Include waiver players"
         )
-    
+
     return {
         'target_days': target_days,
-        'ownership_threshold': ownership_threshold,
+        'ownership_threshold': 0,  # Set to 0 since we removed the slider
         'include_second_starts': include_second_starts,
         'show_waiver_players': show_waiver_players
     }
@@ -297,78 +281,80 @@ def _render_analysis_settings() -> Dict[str, Any]:
 def _render_enhanced_user_guidance() -> None:
     """Render enhanced user guidance with mobile focus."""
     with st.sidebar.expander("❓ Help & Tips", expanded=False):
-        tab1, tab2, tab3 = st.tabs(["Desktop", "Mobile", "Tips"])
-        
+        tab1, tab2, tab3 = st.tabs(["Finding League ID", "Mobile", "Tips"])
+
         with tab1:
             st.markdown("""
-            **Desktop Browser:**
+            **How to Find Your League ID:**
+
+            🖥️ **Desktop Browser:**
             1. Go to [fantasy.yahoo.com](https://fantasy.yahoo.com)
             2. Sign in and open your league
-            3. Click "My Team"
-            4. Copy the URL from address bar
-            5. Use "Paste URL" method above
-            
-            **Example URL:**
+            3. Look at the URL - find the numbers after "l."
+
+            **Example:**
             ```
-            baseball.fantasysports.yahoo.com/b1/458.l.135626.t.6
+            URL: baseball.fantasysports.yahoo.com/b1/458.l.135626.t.6
+            League ID: 135626
             ```
+
+            That's it! Just enter **135626** above.
             """)
-        
+
         with tab2:
             st.markdown("""
             **Mobile Options:**
-            
-            📱 **App Share:**
-            - Open Yahoo Fantasy app
-            - Go to your team
-            - Tap share icon
-            - Copy link
-            - Paste here
-            
-            🌐 **Mobile Browser:**
-            - Open browser
-            - Go to fantasy.yahoo.com
-            - Request desktop site
-            - Copy URL
-            
-            ⚙️ **League Settings:**
-            - App → League → Settings
-            - Find League ID
-            - Note your team #
+
+            📱 **Yahoo Fantasy App:**
+            1. Open the app
+            2. Go to your league
+            3. Tap "League" tab
+            4. Select "Settings"
+            5. Find "League ID"
+
+            **OR**
+
+            📱 **Mobile Browser:**
+            1. Open browser
+            2. Go to fantasy.yahoo.com
+            3. Request "Desktop Site"
+            4. Find league ID in URL
             """)
-        
+
         with tab3:
             st.markdown("""
             **Pro Tips:**
-            
-            ✅ **Save Time:**
-            - Bookmark your team page
-            - Save team key in notes
-            
-            🎯 **Team Key Parts:**
-            - `458` = 2025 MLB
-            - `l.XXXXX` = League ID
-            - `t.X` = Team number
-            
-            🔄 **Multiple Teams:**
-            - Each team has unique key
-            - Switch teams by changing key
+
+            ✅ **Simplified Setup:**
+            - You only need the league ID number
+            - We'll show all teams for you to choose
+            - No need to find complex team keys!
+
+            🎯 **What You Need:**
+            - Just the 6-digit league ID
+            - Example: `135626`
+            - That's it!
+
+            🔄 **Multiple Leagues:**
+            - Save different league IDs
+            - Switch leagues easily
+            - Pick your team from dropdown
             """)
     
     with st.sidebar.expander("🔧 Troubleshooting", expanded=False):
         st.markdown("""
         **Common Issues:**
-        
-        📱 **Mobile Problems:**
-        - Can't find team key? Use share function
-        - App not working? Try mobile browser
-        - URL too long? Copy in parts
-        
-        ❌ **Invalid Format:**
-        - Must have all dots and numbers
-        - No spaces or extra characters
-        - Format: `XXX.l.XXXXXX.t.X`
-        
+
+        📱 **Can't Find League ID?**
+        - Check League Settings in app
+        - Look in any Yahoo Fantasy URL
+        - Numbers after "l." are your league ID
+
+        ❌ **Teams Not Loading?**
+        - Verify Yahoo OAuth is configured
+        - Check that league ID is correct
+        - Try the manual team number entry
+
         🔌 **Connection Issues:**
         - Check internet connection
         - Try refreshing the page

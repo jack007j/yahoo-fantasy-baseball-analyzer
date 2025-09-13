@@ -21,38 +21,61 @@ from ..components.sidebar_enhanced import get_sidebar_state
 
 def render_enhanced_roster_tab() -> None:
     """Render the enhanced roster tab with player cards and images."""
-    # Clean header without refresh button
-    st.header("My Team Roster")
-    
-    # Move everything up with negative margin
+    # Simple plain header - h3 is smaller than main title
     st.markdown("""
-    <style>
-    /* Reduce spacing to fill more screen */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-    }
-    
-    /* Make header more compact */
-    h1 {
-        margin-bottom: 0.5rem !important;
-        margin-top: 0 !important;
-    }
-    
-    
-    /* Reduce tab spacing */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0px !important;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    /* Reduce general spacing */
-    .stMarkdown {
-        margin-bottom: 0.5rem !important;
-    }
-    </style>
+        <style>
+        /* Reduce spacing around h3 headers */
+        .stMarkdown h3 {
+            font-size: 1.3rem; /* About 20-21px */
+            font-weight: 600;
+            margin-top: -0.5rem !important;
+            margin-bottom: 0.25rem !important;
+            padding: 0 !important;
+        }
+
+        /* Reduce space in the containing div */
+        div[data-testid="stVerticalBlock"] > div:has(h3) {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        </style>
     """, unsafe_allow_html=True)
-    
+    st.markdown("### My Team Roster")
+
+    # Custom styling for pitcher/position tabs
+    st.markdown("""
+        <style>
+        /* Style the pitcher/position player tabs */
+        div[data-testid="stVerticalBlock"] > div:has(> div[data-baseweb="tab-list"]) {
+            background-color: #1a1a1a;
+            padding: 4px;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Tab buttons */
+        .stTabs [data-baseweb="tab"] {
+            color: #999;
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+
+        .stTabs [data-baseweb="tab"]:hover {
+            color: #ccc;
+        }
+
+        .stTabs [aria-selected="true"] {
+            color: #fff !important;
+            background: #8b0000 !important;
+            border-radius: 4px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     # Check configuration
     sidebar_state = get_sidebar_state()
     team_key = sidebar_state.get('team_key')

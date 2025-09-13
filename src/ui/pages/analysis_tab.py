@@ -146,60 +146,39 @@ def _display_analysis_results(
     if waiver_pitchers and settings.get('show_waiver_players', True):
         _display_pitcher_group("🔄 Waiver Wire - Available Starters", waiver_pitchers, settings)
     
-    # Analysis insights
-    _display_analysis_insights(pitcher_analyses, settings)
 
 
 def _display_fantasy_week_header(fantasy_week: FantasyWeek) -> None:
     """Display fantasy week information header."""
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         st.subheader(f"📅 Fantasy Week: {fantasy_week.week_display}")
         st.caption(f"Week {fantasy_week.week_number} • Target Days: {', '.join(fantasy_week.target_days)}")
     
     with col2:
-        if fantasy_week.analysis_duration:
-            st.metric("Analysis Time", f"{fantasy_week.analysis_duration:.1f}s")
-    
-    with col3:
         st.metric("Total Found", fantasy_week.total_pitchers_analyzed)
 
 
 def _display_summary_metrics(fantasy_week: FantasyWeek, pitcher_analyses: List[PitcherAnalysis]) -> None:
-    """Display summary metrics in columns."""
-    col1, col2, col3, col4 = st.columns(4)
+    """Display summary metrics in compact columns."""
+    st.markdown("##### 📊 Quick Stats")
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric(
-            "My Team Pitchers", 
-            fantasy_week.my_team_pitchers,
-            help="Confirmed starters already on your roster"
-        )
+        st.markdown(f"**My Team:** {fantasy_week.my_team_pitchers}")
+        st.markdown(f"**Waiver:** {fantasy_week.waiver_pitchers}")
     
     with col2:
-        st.metric(
-            "Waiver Options", 
-            fantasy_week.waiver_pitchers,
-            help="Available starters on the waiver wire"
-        )
-    
-    with col3:
         second_start_count = len([p for p in pitcher_analyses if p.potential_second_start])
-        st.metric(
-            "Potential 2nd Starts", 
-            second_start_count,
-            help="Pitchers likely to get a second start this week"
-        )
-    
-    with col4:
+        st.markdown(f"**2nd Starts:** {second_start_count}")
+        
+    with col3:
         monday_count = len([p for p in pitcher_analyses if p.confirmed_start_date and p.confirmed_start_date.weekday() == 0])
         tuesday_count = len([p for p in pitcher_analyses if p.confirmed_start_date and p.confirmed_start_date.weekday() == 1])
-        st.metric(
-            "Mon/Tue Split", 
-            f"{monday_count}/{tuesday_count}",
-            help="Monday starters / Tuesday starters"
-        )
+        st.markdown(f"**Mon/Tue:** {monday_count}/{tuesday_count}")
+    
+    st.divider()
 
 
 def _display_pitcher_group(title: str, pitchers: List[PitcherAnalysis], settings: Dict[str, Any]) -> None:
@@ -287,41 +266,6 @@ def _display_pitcher_card(analysis: PitcherAnalysis, settings: Dict[str, Any]) -
         st.divider()
 
 
-def _display_analysis_insights(pitcher_analyses: List[PitcherAnalysis], settings: Dict[str, Any]) -> None:
-    """Display analysis insights and recommendations."""
-    st.subheader("💡 Analysis Insights")
-    
-    if not pitcher_analyses:
-        return
-    
-    insights = []
-    
-    # Second start insights
-    second_start_pitchers = [p for p in pitcher_analyses if p.potential_second_start]
-    if second_start_pitchers:
-        insights.append(f"🔄 **{len(second_start_pitchers)} pitchers** have potential for a second start this week")
-    
-    # Ownership insights
-    low_owned = [p for p in pitcher_analyses if p.player.percent_owned < 50]
-    if low_owned:
-        insights.append(f"📈 **{len(low_owned)} low-owned options** (under 50% ownership) available")
-    
-    # My team vs waiver insights
-    my_team_count = len([p for p in pitcher_analyses if p.player.source == "My Team"])
-    waiver_count = len([p for p in pitcher_analyses if p.player.source == "Waiver"])
-    
-    if my_team_count > 0:
-        insights.append(f"👥 You have **{my_team_count} confirmed starters** already on your roster")
-    
-    if waiver_count > 0:
-        insights.append(f"🔄 **{waiver_count} waiver options** available for pickup")
-    
-    # Display insights
-    for insight in insights:
-        st.markdown(f"• {insight}")
-    
-    if not insights:
-        st.info("No specific insights available for this analysis.")
 
 
 def _show_analysis_placeholder() -> None:

@@ -288,11 +288,26 @@ def get_mobile_styles() -> str:
             max-width: 100%;
         }
         
-        /* Typography Scaling */
-        h1 { font-size: 1.75rem; }
+        /* Typography Scaling - Better mobile title handling */
+        h1 {
+            font-size: 1.75rem !important;
+            line-height: 1.2 !important;
+        }
         h2 { font-size: 1.5rem; }
         h3 { font-size: 1.25rem; }
         p { font-size: 0.95rem; }
+
+        /* Streamlit title specific styling */
+        .stTitle {
+            font-size: 1.75rem !important;
+            text-align: center !important;
+        }
+
+        /* Caption under title */
+        .stCaption {
+            text-align: center !important;
+            font-size: 0.9rem !important;
+        }
         
         /* Touch-Friendly Buttons */
         .stButton > button {
@@ -434,9 +449,23 @@ def get_mobile_styles() -> str:
     
     /* Small Mobile Adjustments */
     @media (max-width: 480px) {
-        h1 { font-size: 1.5rem; }
+        /* Maintain readable title size on small screens */
+        h1 {
+            font-size: 1.5rem !important;
+            line-height: 1.2 !important;
+        }
         h2 { font-size: 1.25rem; }
         h3 { font-size: 1.1rem; }
+
+        /* Streamlit title on small mobile */
+        .stTitle {
+            font-size: 1.5rem !important;
+        }
+
+        /* Caption size on small mobile */
+        .stCaption {
+            font-size: 0.85rem !important;
+        }
         
         .stButton > button {
             font-size: 0.9rem;
@@ -454,12 +483,13 @@ def get_mobile_styles() -> str:
     
     /* Landscape Mobile */
     @media (max-width: 768px) and (orientation: landscape) {
-        .main-header {
-            padding: var(--spacing-sm);
+        /* Maintain readable sizes in landscape */
+        h1, .stTitle {
+            font-size: 1.5rem !important;
         }
-        
-        .main-header h1 {
-            font-size: 1.25rem;
+
+        .stCaption {
+            font-size: 0.85rem !important;
         }
     }
     

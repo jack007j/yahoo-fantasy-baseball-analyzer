@@ -46,12 +46,129 @@ def main() -> None:
     apply_enhanced_css()
     inject_loading_css()
     
-    # Compact application header
+    # Enhanced dark header with subtle effects and tab styling
     st.markdown("""
-    <div class="main-header fade-in" style="padding: 0.5rem 0;">
-        <h2>Yahoo Fantasy Baseball Analyzer</h2>
-        <p style="font-size: 0.9rem;">Find two-start starting pitchers on your waiver wire</p>
-    </div>
+        <style>
+        .app-header {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            padding: 16px 12px;
+            margin: -3rem -1rem 1rem -1rem;
+            border-bottom: 3px solid #ff4444;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+            animation: shimmer 8s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .app-title {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 600;
+            text-align: center;
+            margin: 0;
+            letter-spacing: -0.5px;
+            position: relative;
+            z-index: 1;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .app-desc {
+            color: #a0a0a0;
+            font-size: 16px;
+            text-align: center;
+            margin: 8px 0 0 0;
+            position: relative;
+            z-index: 1;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+        }
+
+        /* Main Analysis/Roster tab styling */
+        div[data-testid="stHorizontalBlock"] > div:has(> div[data-baseweb="tab-list"]) {
+            background-color: #1a1a1a;
+            padding: 4px;
+            border-radius: 6px;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ff4444;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            color: #999;
+            background: transparent;
+            font-weight: 500;
+            font-size: 14px;
+            border: none;
+            padding: 8px 20px;
+            margin: 0 2px;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+        }
+
+        .stTabs [data-baseweb="tab"]:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .stTabs [aria-selected="true"] {
+            background: #8b0000 !important;
+            color: white !important;
+            font-weight: 600;
+        }
+
+        /* Remove ALL top spacing */
+        .main .block-container {
+            padding-top: 0 !important;
+            max-width: 100%;
+        }
+
+        .stApp > header {
+            display: none !important;
+        }
+
+        .stHeader {
+            margin-top: 0 !important;
+            margin-bottom: 0.25rem !important;
+            padding-top: 0 !important;
+        }
+
+        div[data-testid="stVerticalBlock"] {
+            gap: 0.5rem !important;
+        }
+
+        @media (max-width: 600px) {
+            .app-title {
+                font-size: 24px;
+            }
+            .app-desc {
+                font-size: 14px;
+            }
+            .stTabs [data-baseweb="tab"] {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+        }
+        </style>
+
+        <div class="app-header">
+            <div class="app-title">Yahoo Baseball Pitcher Streamer</div>
+            <div class="app-desc">Find two-start starting pitchers on your waiver wire</div>
+        </div>
     """, unsafe_allow_html=True)
     
     # Initialize configuration
@@ -73,19 +190,9 @@ def main() -> None:
     
     # Show configuration status
     if not sidebar_config.get('is_configured', False):
-        st.info("🔧 Configure your team key in the sidebar to get started")
+        st.info("🔧 Configure your team key in the sidebar")
         
-        # Compact feature showcase
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.caption("📊 **Analysis**: Mon/Tue starters")
-        
-        with col2:
-            st.caption("🔄 **Waiver**: Available pitchers")
-        
-        with col3:
-            st.caption("📈 **Stats**: Savant links")
+
     
     # Main application tabs with enhanced styling
     tab1, tab2 = st.tabs(["Analysis", "Roster"])
@@ -96,28 +203,6 @@ def main() -> None:
     with tab2:
         render_enhanced_roster_tab()
     
-    # Enhanced footer with dark mode support
-    st.markdown("---")
-    st.markdown("""
-    <div class="content-section" style="text-align: center; margin-top: 2rem;">
-        <h4>Yahoo Fantasy Baseball Analyzer</h4>
-        <p style="margin: 0.5rem 0;">
-            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit' target='_blank'>
-                📚 Documentation
-            </a> |
-            <a href='https://github.com/yourusername/yahoo-fantasy-baseball-streamlit/issues' target='_blank'>
-                🐛 Report Issues
-            </a> |
-            <a href='https://fantasy.yahoo.com' target='_blank'>
-                🏟️ Yahoo Fantasy
-            </a>
-        </p>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 1rem 0 0 0;">
-            Data powered by Yahoo Fantasy API & MLB Stats API |
-            Built with Streamlit | Dark mode & mobile optimized
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

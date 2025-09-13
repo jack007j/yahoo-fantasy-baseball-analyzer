@@ -20,14 +20,34 @@ from ..components.sidebar_enhanced import get_sidebar_state
 
 def render_enhanced_analysis_tab() -> None:
     """Render enhanced analysis tab with pitcher cards and profile images."""
-    st.header("Monday/Tuesday Starter Analysis")
+    # Simple plain header - h3 is smaller than main title
+    st.markdown("""
+        <style>
+        /* Reduce spacing around h3 headers */
+        .stMarkdown h3 {
+            font-size: 1.3rem; /* About 20-21px */
+            font-weight: 600;
+            margin-top: -0.5rem !important;
+            margin-bottom: 0.25rem !important;
+            padding: 0 !important;
+        }
+
+        /* Reduce space in the containing div */
+        div[data-testid="stVerticalBlock"] > div:has(h3) {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    st.markdown("### Early Week Starters")
     
     # Check configuration
     sidebar_state = get_sidebar_state()
     team_key = sidebar_state.get('team_key')
     
     if not team_key:
-        st.warning("🔧 Please configure your team key in the sidebar to run analysis.")
         _show_analysis_placeholder()
         return
     
@@ -35,7 +55,7 @@ def render_enhanced_analysis_tab() -> None:
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        st.markdown("*Find the best confirmed starters with second start potential*")
+        pass
     
     with col2:
         if st.button("🔍 Analyze", type="primary", use_container_width=True):
@@ -114,54 +134,22 @@ def _display_enhanced_analysis_results(
     settings: Dict[str, Any]
 ) -> None:
     """Display enhanced analysis results with pitcher cards."""
-    
-    # Week header
+
+    # Week header - just dates
     _display_week_header(fantasy_week)
-    
+
     if not pitcher_analyses:
         st.warning("No confirmed starters found for your criteria.")
         return
-    
-    # Summary metrics
-    _display_summary_metrics(fantasy_week, pitcher_analyses)
-    
-    # Group pitchers
-    my_team_pitchers = [p for p in pitcher_analyses if p.player.source == "My Team"]
-    waiver_pitchers = [p for p in pitcher_analyses if p.player.source == "Waiver"]
-    
-    # Create tabs for different sources
-    tabs = []
-    tab_names = []
-    
-    if my_team_pitchers:
-        tab_names.append(f"👥 My Team ({len(my_team_pitchers)})")
-        tabs.append(my_team_pitchers)
-    
-    if waiver_pitchers and settings.get('show_waiver_players', True):
-        tab_names.append(f"🔄 Waiver Wire ({len(waiver_pitchers)})")
-        tabs.append(waiver_pitchers)
-    
-    if tab_names:
-        st_tabs = st.tabs(tab_names)
-        for tab, pitchers in zip(st_tabs, tabs):
-            with tab:
-                _display_pitcher_cards(pitchers, settings)
-    
-    # Insights section
-    _display_insights(pitcher_analyses, settings)
+
+    # Display all pitchers in one list
+    _display_pitcher_cards(pitcher_analyses, settings)
 
 
 def _display_week_header(fantasy_week: FantasyWeek) -> None:
     """Display fantasy week header."""
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        st.subheader(f"📅 {fantasy_week.week_display}")
-        st.caption(f"Week {fantasy_week.week_number} • Analyzing: {', '.join(fantasy_week.target_days)}")
-    
-    with col2:
-        if fantasy_week.analysis_duration:
-            st.metric("Time", f"{fantasy_week.analysis_duration:.1f}s")
+    st.markdown(f"**📅 {fantasy_week.week_display}**")
+    st.caption(f"Analyzing: {', '.join(fantasy_week.target_days)} • ⭐ = Two-start potential")
 
 
 def _display_summary_metrics(fantasy_week: FantasyWeek, analyses: List[PitcherAnalysis]) -> None:
@@ -207,15 +195,16 @@ def _display_pitcher_analysis_card(analysis: PitcherAnalysis) -> None:
     """Display compact mobile-optimized pitcher analysis card."""
     player = analysis.player
     import urllib.parse
-    
+
     # Build source badge
-    if analysis.potential_second_start:
-        source_badge = '🌟 2nd'
-    elif player.source == "My Team":
+    if player.source == "My Team":
         source_badge = '✅ Team'
     else:
         source_badge = '🔄 Waiver'
-    
+
+    # Add star if second start potential
+    second_start = '⭐' if analysis.potential_second_start else ''
+
     # Build Savant link
     if player.baseball_savant_url:
         savant_link = player.baseball_savant_url
@@ -224,54 +213,22 @@ def _display_pitcher_analysis_card(analysis: PitcherAnalysis) -> None:
         search_name = urllib.parse.quote(player.name)
         savant_link = f"https://baseballsavant.mlb.com/player_search?player_search={search_name}"
         savant_text = "🔍 Savant Profile"
-    
+
     # Use HTML for consistent single-line layout with proper flex properties
     card_html = f'''
     <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
         <img src="{player.get_profile_image_url}" style="height: 40px; border-radius: 6px; flex: 0 0 auto; object-fit: contain;">
         <div style="flex: 1 1 auto; min-width: 0; overflow: hidden;">
-            <div style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{player.name}</div>
+            <div style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{player.name} {second_start}</div>
             <div style="font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📅 {analysis.start_date_display} • {source_badge} • {player.display_positions}</div>
         </div>
         <a href="{savant_link}" target="_blank" style="background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; flex: 0 0 auto; white-space: nowrap; display: flex; align-items: center; justify-content: center;">{savant_text}</a>
     </div>
     '''
-    
+
     st.markdown(card_html, unsafe_allow_html=True)
 
 
-def _display_insights(analyses: List[PitcherAnalysis], settings: Dict[str, Any]) -> None:
-    """Display analysis insights."""
-    st.subheader("💡 Key Insights")
-    
-    insights = []
-    
-    # Second start opportunities
-    second_starters = [p for p in analyses if p.potential_second_start]
-    if second_starters:
-        names = ", ".join([p.player.name for p in second_starters[:3]])
-        more = f" (+{len(second_starters)-3} more)" if len(second_starters) > 3 else ""
-        insights.append(f"🔄 **Second Start Potential:** {names}{more}")
-    
-    # Low ownership gems
-    low_owned = [p for p in analyses if p.player.percent_owned < 30 and p.player.source == "Waiver"]
-    if low_owned:
-        names = ", ".join([p.player.name for p in low_owned[:3]])
-        insights.append(f"💎 **Low-Owned Options:** {names} (under 30% owned)")
-    
-    # My team coverage
-    my_team = [p for p in analyses if p.player.source == "My Team"]
-    if my_team:
-        monday = len([p for p in my_team if "Monday" in p.start_date_display])
-        tuesday = len([p for p in my_team if "Tuesday" in p.start_date_display])
-        insights.append(f"👥 **Your Coverage:** {monday} Monday, {tuesday} Tuesday starters")
-    
-    # Display insights
-    for insight in insights:
-        st.markdown(f"• {insight}")
-    
-    if not insights:
-        st.info("Run analysis to see insights about available pitchers.")
 
 
 def _show_analysis_placeholder() -> None:
@@ -282,10 +239,8 @@ def _show_analysis_placeholder() -> None:
         st.info("""
         **🎯 What this analysis provides:**
         - Confirmed Monday/Tuesday starters
-        - Player profile pictures
         - Baseball Savant links
         - Second start potential
-        - Ownership data
         """)
     
     with col2:
