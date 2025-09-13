@@ -59,7 +59,11 @@ class YahooFantasyClient:
                         'consumer_secret': st.secrets['yahoo_oauth']['client_secret'],
                         'access_token': st.secrets['yahoo_oauth']['access_token'],
                         'refresh_token': st.secrets['yahoo_oauth']['refresh_token'],
-                        'token_time': 0.0  # Will be refreshed if needed
+                        'token_time': 1.0,  # Non-zero to prevent re-auth
+                        'token_type': 'bearer',
+                        'expires_in': 3600,
+                        'guid': None,
+                        'access_token_secret': st.secrets['yahoo_oauth']['refresh_token']  # yahoo_oauth expects this
                     }
 
                     # Write to temp file
