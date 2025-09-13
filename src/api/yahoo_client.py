@@ -56,13 +56,14 @@ class YahooFantasyClient:
 
                     import time
 
-                    # Don't force token expiry - let the OAuth library handle it naturally
+                    # Set token as expired to force immediate refresh
+                    # The tokens in secrets are static and always expired
                     oauth_data = {
                         'consumer_key': st.secrets['yahoo_oauth']['client_id'],
                         'consumer_secret': st.secrets['yahoo_oauth']['client_secret'],
-                        'access_token': st.secrets['yahoo_oauth']['access_token'],
+                        'access_token': st.secrets['yahoo_oauth'].get('access_token', 'dummy_expired_token'),
                         'refresh_token': st.secrets['yahoo_oauth']['refresh_token'],
-                        'token_time': time.time(),  # Current time - token is fresh
+                        'token_time': time.time() - 7200,  # 2 hours ago - definitely expired
                         'token_type': 'bearer',
                         'expires_in': 3600,  # Valid for 1 hour
                         'guid': None
@@ -83,26 +84,25 @@ class YahooFantasyClient:
                 else:
                     raise Exception("No OAuth configuration found (neither file nor secrets)")
 
-            # Force token refresh for Streamlit Cloud deployment
-            # Yahoo seems to invalidate tokens when used from different IPs
-            import os
-            is_streamlit_cloud = os.getenv('STREAMLIT_RUNTIME_ENV') == 'cloud' or \
-                                os.getenv('STREAMLIT_SHARING_MODE') == 'true'
-
+            # Always check and refresh token if needed
             try:
-                if is_streamlit_cloud:
-                    self.logger.info("Streamlit Cloud detected - forcing token refresh...")
-                    self._oauth_client.refresh_access_token()
-                    self.logger.info("Token refreshed successfully for Streamlit Cloud")
-                elif not self._oauth_client.token_is_valid():
-                    self.logger.info("Token expired, attempting to refresh...")
+                if not self._oauth_client.token_is_valid():
+                    self.logger.info("Token expired, refreshing...")
                     self._oauth_client.refresh_access_token()
                     self.logger.info("Token refreshed successfully")
                 else:
-                    self.logger.info("Token is still valid, no refresh needed")
+                    # Double-check by trying to refresh anyway if we're using secrets
+                    # (since the token from secrets is always expired)
+                    import streamlit as st
+                    if hasattr(st, 'secrets') and 'yahoo_oauth' in st.secrets:
+                        self.logger.info("Using Streamlit secrets - forcing token refresh...")
+                        self._oauth_client.refresh_access_token()
+                        self.logger.info("Token refreshed successfully")
+                    else:
+                        self.logger.info("Token is valid, no refresh needed")
             except Exception as refresh_error:
-                self.logger.warning(f"Token refresh failed: {refresh_error}")
-                # Continue anyway - might still work with existing token
+                self.logger.error(f"Token refresh failed: {refresh_error}")
+                raise AuthenticationError(f"Failed to refresh OAuth token: {str(refresh_error)}")
 
             # Initialize game object with the OAuth client
             self._game = yfa.Game(self._oauth_client, YAHOO_GAME_CODE)
