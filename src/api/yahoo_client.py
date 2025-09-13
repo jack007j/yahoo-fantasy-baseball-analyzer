@@ -3,6 +3,7 @@ Yahoo Fantasy API client with secure authentication.
 """
 
 import logging
+import os
 import time
 from typing import Dict, List, Any, Optional
 import pandas as pd
@@ -36,7 +37,17 @@ class YahooFantasyClient:
         self._game: Optional[yfa.Game] = None
         self._is_configured = False
         self._configuration_error: Optional[str] = None
+        self._temp_oauth_file: Optional[str] = None
         self._initialize_oauth()
+
+    def __del__(self):
+        """Clean up temp oauth file on deletion."""
+        if self._temp_oauth_file and os.path.exists(self._temp_oauth_file):
+            try:
+                os.remove(self._temp_oauth_file)
+                self.logger.debug(f"Cleaned up temp oauth file: {self._temp_oauth_file}")
+            except:
+                pass  # Ignore cleanup errors
     
     def _initialize_oauth(self) -> None:
         """Initialize OAuth client using the original yahoo_oauth library."""
@@ -69,18 +80,23 @@ class YahooFantasyClient:
                         'guid': None
                     }
 
-                    # Write to temp file
+                    # Write to temp file - DON'T delete it immediately!
+                    # yahoo_oauth needs to write refreshed tokens back to this file
                     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
                         json.dump(oauth_data, f)
                         temp_file = f.name
 
+                    # Store the temp file path so we can clean it up later
+                    self._temp_oauth_file = temp_file
+
                     try:
                         self._oauth_client = OAuth2(None, None, from_file=temp_file)
-                        self.logger.info("Loaded OAuth from Streamlit secrets")
-                    finally:
-                        # Clean up temp file
+                        self.logger.info(f"Loaded OAuth from Streamlit secrets (temp file: {temp_file})")
+                    except Exception as e:
+                        # Clean up on error
                         if os.path.exists(temp_file):
                             os.remove(temp_file)
+                        raise
                 else:
                     raise Exception("No OAuth configuration found (neither file nor secrets)")
 
