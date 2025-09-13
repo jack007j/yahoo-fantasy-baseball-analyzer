@@ -10,6 +10,33 @@ from typing import Optional, Dict, Any
 import re
 
 
+def _render_token_refresh_section() -> None:
+    """Render token refresh section for troubleshooting authentication issues."""
+    with st.sidebar.expander("🔧 Troubleshooting", expanded=False):
+        st.markdown("**Authentication Issues?**")
+        st.caption("If you're seeing 'invalid credentials' errors, try refreshing the token:")
+
+        if st.button("🔄 Refresh OAuth Token", type="secondary", use_container_width=True):
+            try:
+                from ...api.yahoo_client import YahooFantasyClient
+                client = YahooFantasyClient()
+
+                # Force token refresh
+                if client._oauth_client:
+                    client._oauth_client.refresh_access_token()
+                    st.success("✅ Token refreshed successfully!")
+                    st.caption("Try loading teams again")
+                    # Clear any cached data
+                    if 'yahoo_client' in st.session_state:
+                        del st.session_state['yahoo_client']
+                else:
+                    st.error("OAuth client not initialized")
+            except Exception as e:
+                st.error(f"Failed to refresh token: {str(e)[:100]}")
+
+        st.caption("Note: This app uses a shared token which may have limitations when accessed from multiple locations.")
+
+
 def render_enhanced_sidebar() -> Dict[str, Any]:
     """
     Render enhanced sidebar with mobile-optimized team configuration.
@@ -18,7 +45,10 @@ def render_enhanced_sidebar() -> Dict[str, Any]:
         Dictionary containing sidebar state and configuration
     """
     st.sidebar.title("⚙️ Configuration")
-    
+
+    # Add token refresh button for troubleshooting
+    _render_token_refresh_section()
+
     # Enhanced team ID input section with multiple methods
     team_key = _render_enhanced_team_id_section()
     

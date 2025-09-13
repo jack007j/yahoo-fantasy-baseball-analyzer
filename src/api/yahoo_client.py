@@ -83,23 +83,26 @@ class YahooFantasyClient:
                 else:
                     raise Exception("No OAuth configuration found (neither file nor secrets)")
 
-            # Only refresh if token is actually expired
+            # Force token refresh for Streamlit Cloud deployment
+            # Yahoo seems to invalidate tokens when used from different IPs
+            import os
+            is_streamlit_cloud = os.getenv('STREAMLIT_RUNTIME_ENV') == 'cloud' or \
+                                os.getenv('STREAMLIT_SHARING_MODE') == 'true'
+
             try:
-                if not self._oauth_client.token_is_valid():
+                if is_streamlit_cloud:
+                    self.logger.info("Streamlit Cloud detected - forcing token refresh...")
+                    self._oauth_client.refresh_access_token()
+                    self.logger.info("Token refreshed successfully for Streamlit Cloud")
+                elif not self._oauth_client.token_is_valid():
                     self.logger.info("Token expired, attempting to refresh...")
                     self._oauth_client.refresh_access_token()
                     self.logger.info("Token refreshed successfully")
                 else:
                     self.logger.info("Token is still valid, no refresh needed")
             except Exception as refresh_error:
-                self.logger.warning(f"Token validation/refresh failed: {refresh_error}")
-                # Try to refresh anyway as a fallback
-                try:
-                    self._oauth_client.refresh_access_token()
-                    self.logger.info("Forced token refresh succeeded")
-                except:
-                    self.logger.error("Could not refresh token")
-                    # Continue anyway - might still work
+                self.logger.warning(f"Token refresh failed: {refresh_error}")
+                # Continue anyway - might still work with existing token
 
             # Initialize game object with the OAuth client
             self._game = yfa.Game(self._oauth_client, YAHOO_GAME_CODE)
@@ -159,7 +162,16 @@ class YahooFantasyClient:
             # Get available league IDs for current year
             from datetime import date
             current_year = date.today().year
-            league_ids = self._game.league_ids(year=current_year)
+
+            try:
+                league_ids = self._game.league_ids(year=current_year)
+            except Exception as league_error:
+                # Log the full error for debugging
+                self.logger.error(f"Failed to get league IDs: {league_error}")
+                # Try to extract more info from the error
+                if hasattr(league_error, 'response'):
+                    self.logger.error(f"Response content: {getattr(league_error.response, 'content', 'N/A')}")
+                raise YahooAPIError(f"Failed to get league IDs: {str(league_error)[:200]}")
 
             if league_id not in league_ids:
                 available_leagues = ", ".join(league_ids) if league_ids else "None"
@@ -175,7 +187,11 @@ class YahooFantasyClient:
         except Exception as e:
             if isinstance(e, (YahooAPIError, AuthenticationError)):
                 raise
-            raise YahooAPIError(f"Failed to get league {league_id}: {str(e)}")
+            # Include more error details
+            error_msg = str(e)
+            if hasattr(e, '__dict__'):
+                error_msg += f" | Details: {e.__dict__}"
+            raise YahooAPIError(f"Failed to get league {league_id}: {error_msg[:500]}")
 
     def get_league_teams(self, league_id: str) -> Dict[str, str]:
         """
