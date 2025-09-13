@@ -150,6 +150,14 @@ def main() -> None:
             gap: 0.5rem !important;
         }
 
+        /* Disable text input in selectbox on mobile */
+        @media (max-width: 768px) {
+            .stSelectbox input {
+                pointer-events: none;
+                caret-color: transparent;
+            }
+        }
+
         @media (max-width: 600px) {
             .app-title {
                 font-size: 24px;
