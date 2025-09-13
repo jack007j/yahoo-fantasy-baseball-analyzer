@@ -8,7 +8,6 @@ This file must be at the root level for Streamlit Cloud to recognize it.
 import streamlit as st
 from src.ui.pages.analysis_tab_enhanced import render_enhanced_analysis_tab
 from src.ui.pages.roster_tab_enhanced import render_enhanced_roster_tab
-from src.ui.components.sidebar_enhanced import render_enhanced_sidebar
 from src.ui.components.styling_enhanced import apply_enhanced_css
 from src.ui.components.styling import create_section_header
 from src.ui.components.loading import inject_loading_css
@@ -22,7 +21,7 @@ def main() -> None:
         page_title="Yahoo Fantasy Baseball Analyzer",
         page_icon="⚾",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
         menu_items={
             'Get Help': 'https://github.com/yourusername/yahoo-fantasy-baseball-streamlit',
             'Report a bug': 'https://github.com/yourusername/yahoo-fantasy-baseball-streamlit/issues',
@@ -101,7 +100,7 @@ def main() -> None:
         /* Main Analysis/Roster tab styling */
         div[data-testid="stHorizontalBlock"] > div:has(> div[data-baseweb="tab-list"]) {
             background-color: #1a1a1a;
-            padding: 4px;
+            padding: 1px;
             border-radius: 6px;
             margin-top: 1rem;
             margin-bottom: 1rem;
@@ -183,14 +182,120 @@ def main() -> None:
         - Verify your Yahoo API credentials are configured
         """)
         st.stop()
-    
-    # Enhanced sidebar with mobile-friendly team ID discovery
-    with st.sidebar:
-        sidebar_config = render_enhanced_sidebar()
-    
-    # Show configuration status
-    if not sidebar_config.get('is_configured', False):
-        st.info("🔧 Configure your team key in the sidebar")
+
+    # Configuration section (mobile-friendly, no sidebar)
+    # Step 1: League ID input
+    col1, col2 = st.columns([4, 1])
+
+    with col1:
+        league_id = st.text_input(
+            "League ID",
+            value=st.session_state.get('league_id', ''),
+            placeholder="e.g., 135626",
+            help="Your Yahoo Fantasy Baseball league ID",
+            key="input_league_id"
+        )
+
+    with col2:
+        st.markdown("<div style='height: 1px'></div>", unsafe_allow_html=True)
+        fetch_teams = st.button("Load League Teams", type="primary", use_container_width=True)
+
+    # Step 2: Team selection (only shown after league ID is entered)
+    if fetch_teams and league_id:
+        st.session_state['league_id'] = league_id
+        st.session_state['fetch_teams'] = True
+        st.rerun()
+
+    # Try to load teams if league ID is set
+    if st.session_state.get('league_id') and st.session_state.get('fetch_teams', False):
+        try:
+            from src.api.yahoo_client import YahooFantasyClient
+
+            with st.spinner("Loading teams..."):
+                client = YahooFantasyClient()
+                if client.is_configured():
+                    full_league_key = f"458.l.{st.session_state['league_id']}"
+                    teams_dict = client.get_league_teams(full_league_key)
+
+                    if teams_dict:
+                        st.session_state['teams_dict'] = teams_dict
+                        st.session_state['teams_loaded'] = True
+                    else:
+                        st.warning("No teams found in this league")
+                else:
+                    st.error("Yahoo API not configured")
+        except Exception as e:
+            # Fallback to manual entry
+            st.session_state['manual_entry'] = True
+            st.warning(f"Could not load teams: {str(e)[:100]}")
+
+    # Show team selector if teams are loaded
+    if st.session_state.get('teams_loaded') and st.session_state.get('teams_dict'):
+        teams_dict = st.session_state['teams_dict']
+        team_options = ["Select your team..."] + list(teams_dict.values())
+
+        selected_team = st.selectbox(
+            "Your Team",
+            options=team_options,
+            key="team_selector"
+        )
+
+        if selected_team and selected_team != "Select your team...":
+            # Find the team key for the selected team
+            for key, name in teams_dict.items():
+                if name == selected_team:
+                    team_key = key
+                    # Extract team number from key (e.g., "458.l.135626.t.6" -> "6")
+                    team_number = team_key.split('.t.')[-1]
+
+                    st.session_state['team_key'] = team_key
+                    st.session_state['team_number'] = team_number
+                    st.session_state['configured'] = True
+                    break
+
+    # Fallback: Manual team number entry (only if API fails)
+    elif st.session_state.get('manual_entry') or (st.session_state.get('league_id') and not st.session_state.get('teams_loaded')):
+        team_number = st.text_input(
+            "Team Number (manual entry)",
+            value=st.session_state.get('team_number', ''),
+            placeholder="e.g., 6",
+            help="Enter your team number manually",
+            key="manual_team_number"
+        )
+
+        if team_number:
+            full_league_key = f"458.l.{st.session_state['league_id']}"
+            team_key = f"{full_league_key}.t.{team_number}"
+
+            st.session_state['team_key'] = team_key
+            st.session_state['team_number'] = team_number
+            st.session_state['configured'] = True
+
+    # Help expander (collapsed by default)
+    with st.expander("📖 Help & Tips", expanded=False):
+        col_help1, col_help2 = st.columns(2)
+
+        with col_help1:
+            st.markdown("""
+            **🔍 Finding Your League ID:**
+            1. Go to your Yahoo Fantasy league
+            2. Check the URL: `.../b1/135626`
+            3. The number (135626) is your League ID
+            """)
+
+        with col_help2:
+            st.markdown("""
+            **🔢 Finding Your Team Number:**
+            - Check your team URL: `.../t.6`
+            - Or count your position in standings
+            - Team 1, Team 2, etc.
+            """)
+
+    # Minimal spacing after help section
+    st.markdown("<div style='height: 1px'></div>", unsafe_allow_html=True)
+
+    # Check if configured
+    is_configured = st.session_state.get('configured', False)
         
 
     

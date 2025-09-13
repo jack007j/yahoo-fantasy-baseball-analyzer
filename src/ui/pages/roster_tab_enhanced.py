@@ -16,7 +16,7 @@ from ...api.yahoo_client import YahooFantasyClient
 from ...api.mlb_client import MLBStatsClient
 from ...services.cache_service import CacheService
 from ...core.exceptions import AnalysisError, APIError
-from ..components.sidebar_enhanced import get_sidebar_state
+# Removed sidebar import - using session state directly
 
 
 def render_enhanced_roster_tab() -> None:
@@ -76,12 +76,11 @@ def render_enhanced_roster_tab() -> None:
         </style>
     """, unsafe_allow_html=True)
 
-    # Check configuration
-    sidebar_state = get_sidebar_state()
-    team_key = sidebar_state.get('team_key')
-    
+    # Check configuration from session state
+    team_key = st.session_state.get('team_key')
+
     if not team_key:
-        st.warning("🔧 Please configure your team key in the sidebar to view your roster.")
+        st.warning("⚾ Enter your League ID and Select Team above")
         return
     
     # Load roster if needed (auto-load on tab switch)

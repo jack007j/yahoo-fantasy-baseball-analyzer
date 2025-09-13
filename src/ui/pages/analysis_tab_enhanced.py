@@ -15,7 +15,7 @@ from ...api.yahoo_client import YahooFantasyClient
 from ...api.mlb_client import MLBStatsClient
 from ...services.cache_service import CacheService
 from ...core.exceptions import AnalysisError, APIError
-from ..components.sidebar_enhanced import get_sidebar_state
+# Removed sidebar import - using session state directly
 
 
 def render_enhanced_analysis_tab() -> None:
@@ -43,11 +43,11 @@ def render_enhanced_analysis_tab() -> None:
     """, unsafe_allow_html=True)
     st.markdown("### Early Week Starters")
     
-    # Check configuration
-    sidebar_state = get_sidebar_state()
-    team_key = sidebar_state.get('team_key')
-    
+    # Check configuration from session state
+    team_key = st.session_state.get('team_key')
+
     if not team_key:
+        st.warning("⚾ Enter your League ID and Select Team above")
         _show_analysis_placeholder()
         return
     
@@ -64,15 +64,18 @@ def render_enhanced_analysis_tab() -> None:
     
     # Run analysis if requested
     if st.session_state.get('run_analysis', False):
-        _run_enhanced_analysis(team_key, sidebar_state['analysis_settings'])
+        # Use default settings since sidebar is removed
+        default_settings = {'ownership_threshold': 0.0}
+        _run_enhanced_analysis(team_key, default_settings)
         st.session_state['run_analysis'] = False
-    
+
     # Display results
     if 'analysis_results' in st.session_state:
+        default_settings = {'ownership_threshold': 0.0}
         _display_enhanced_analysis_results(
             st.session_state['analysis_results']['fantasy_week'],
             st.session_state['analysis_results']['pitcher_analyses'],
-            sidebar_state['analysis_settings']
+            default_settings
         )
     else:
         _show_analysis_placeholder()
@@ -233,22 +236,10 @@ def _display_pitcher_analysis_card(analysis: PitcherAnalysis) -> None:
 
 def _show_analysis_placeholder() -> None:
     """Show placeholder content."""
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.info("""
-        **🎯 What this analysis provides:**
-        - Confirmed Monday/Tuesday starters
-        - Baseball Savant links
-        - Second start potential
-        """)
-    
-    with col2:
-        st.info("""
-        **⚾ How to use:**
-        1. Configure team key in sidebar
-        2. Select target days
-        3. Click "Analyze" button
-        4. Review pitcher cards
-        5. Click Savant links for stats
-        """)
+    st.info("""
+    **🎯 What this analysis provides:**
+    - Confirmed Monday/Tuesday starters
+    - Baseball Savant links for every pitcher
+    - Second start potential indicators (⭐)
+    - Waiver wire vs. your roster comparison
+    """)

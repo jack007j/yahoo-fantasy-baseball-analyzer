@@ -82,15 +82,15 @@ class YahooFantasyClient:
                 else:
                     raise Exception("No OAuth configuration found (neither file nor secrets)")
 
-            # For Streamlit Cloud deployment, skip token validation since we have valid tokens
-            # The yahoo_oauth library's token validation is problematic with pre-generated tokens
+            # Always try to refresh token for Streamlit Cloud deployment
+            # The tokens from secrets might be expired
             try:
-                if not self._oauth_client.token_is_valid():
-                    self.logger.info("Token appears invalid, but using existing tokens anyway")
-                    # Don't refresh - use the tokens as-is since they're freshly generated
-            except:
-                # If token validation fails, continue anyway
-                self.logger.info("Token validation skipped, using provided tokens")
+                self.logger.info("Attempting to refresh OAuth token...")
+                self._oauth_client.refresh_access_token()
+                self.logger.info("Token refreshed successfully")
+            except Exception as refresh_error:
+                self.logger.warning(f"Token refresh failed: {refresh_error}")
+                # Continue anyway - might still work
 
             # Initialize game object with the OAuth client
             self._game = yfa.Game(self._oauth_client, YAHOO_GAME_CODE)
