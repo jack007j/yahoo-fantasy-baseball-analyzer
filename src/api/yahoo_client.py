@@ -41,20 +41,53 @@ class YahooFantasyClient:
     def _initialize_oauth(self) -> None:
         """Initialize OAuth client using the original yahoo_oauth library."""
         try:
-            # Use the original OAuth2 library exactly like the notebook
-            self._oauth_client = OAuth2(None, None, from_file='yahoo_oauth.json')
-            
+            # Try to load from file first (for local development)
+            try:
+                self._oauth_client = OAuth2(None, None, from_file='yahoo_oauth.json')
+                self.logger.info("Loaded OAuth from yahoo_oauth.json file")
+            except:
+                # If file doesn't exist, try loading from Streamlit secrets (for deployment)
+                import streamlit as st
+                if hasattr(st, 'secrets') and 'yahoo_oauth' in st.secrets:
+                    # Create a temporary JSON file from secrets
+                    import json
+                    import tempfile
+                    import os
+
+                    oauth_data = {
+                        'consumer_key': st.secrets['yahoo_oauth']['client_id'],
+                        'consumer_secret': st.secrets['yahoo_oauth']['client_secret'],
+                        'access_token': st.secrets['yahoo_oauth']['access_token'],
+                        'refresh_token': st.secrets['yahoo_oauth']['refresh_token'],
+                        'token_time': 0.0  # Will be refreshed if needed
+                    }
+
+                    # Write to temp file
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        json.dump(oauth_data, f)
+                        temp_file = f.name
+
+                    try:
+                        self._oauth_client = OAuth2(None, None, from_file=temp_file)
+                        self.logger.info("Loaded OAuth from Streamlit secrets")
+                    finally:
+                        # Clean up temp file
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                else:
+                    raise Exception("No OAuth configuration found (neither file nor secrets)")
+
             # Check if the OAuth client is properly configured and refresh if needed
             if not self._oauth_client.token_is_valid():
                 self.logger.info("Token not valid, attempting refresh...")
                 self._oauth_client.refresh_access_token()
-            
+
             # Initialize game object with the OAuth client
             self._game = yfa.Game(self._oauth_client, YAHOO_GAME_CODE)
             self._is_configured = True
-            
+
             self.logger.info("Yahoo Fantasy API client initialized successfully with yahoo_oauth")
-            
+
         except Exception as e:
             self._configuration_error = f"Failed to initialize Yahoo OAuth: {str(e)}"
             self.logger.warning(self._configuration_error)

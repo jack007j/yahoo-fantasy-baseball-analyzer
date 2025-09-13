@@ -2,6 +2,7 @@
 yahoo_oauth.json
 secrets.json
 
+
 # Python
 __pycache__/
 *.py[cod]
